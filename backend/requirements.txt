@@ -1,7 +1,7 @@
-Flask
-Flask-WTF
-bcrypt
-SQLAlchemy
+Flask==2.0.2
+Flask-WTF==1.0.0
+bcrypt==3.2.0
+SQLAlchemy==1.4.23
 flask_sqlalchemy
 yahoofinancials
 simplejson
@@ -12,3 +12,4 @@ Authlib
 python-dotenv
 requests
 auth0-python
+marshmallow

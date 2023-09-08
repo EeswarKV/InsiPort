@@ -1,11 +1,10 @@
 from flask import app, Flask, request, jsonify
 from authlib.integrations.flask_oauth2 import ResourceProtector
+from src.customers.user_details_updation import update_user_details
+from src.exception import InvalidCustomerData, MissingUserDetails, UserRightsException
 from src.general_settings import get_general_settings
-from src.customers.get_customers_info import get_customers_info_under_advisor
-from src.customers.delete_customer import delete_customer_information
-from src.tokens_and_roles import get_access_token
-from src.customers.create_customer import new_customer_creation
-from src.validator import Auth0JWTBearerTokenValidator, authenticate_user_role
+from src.customers.customer_operations import delete_customer_information, get_customer_info, get_customers_info_under_advisor, new_customer_creation
+from src.validator import Auth0JWTBearerTokenValidator, ValidateAddCustomerRequest, ValidateUpdateUserInfoSchema, authenticate_user_role
 import ssl 
 ssl._create_default_https_context = ssl._create_unverified_context
 from src.models import advisors, db
@@ -26,45 +25,74 @@ validator = Auth0JWTBearerTokenValidator(
 )
 require_auth.register_token_validator(validator)
 
+@app.errorhandler(InvalidCustomerData)
+def invalid_customer_data(e):
+    return jsonify(e.to_dict()), e.status_code
+
+@app.errorhandler(UserRightsException)
+def user_rights_exception(e):
+    return jsonify(e.to_dict()), e.status_code
+
+@app.errorhandler(MissingUserDetails)
+def missing_user_Details(e):
+    return jsonify(e.to_dict()), e.status_code
+
 @app.route('/general_setting', methods = ['GET'])
 @require_auth()
 def general_settings():
-    user_id = request.headers['user']
+    try:
+        user_id = request.headers['user']
+    except:
+        raise MissingUserDetails("Invalid user details", status_code= 403)
     response = get_general_settings(user_id)
     return jsonify(response)
 
 @app.route('/create_customer', methods = ['POST'])
 @require_auth()
 @authenticate_user_role(role="Fund_Manager")
+@ValidateAddCustomerRequest()
 def create_customer():
     customer_info = request.get_json()
-    advisor_id = request.headers['user']
+    try:
+        advisor_id = request.headers['user']
+    except:
+        raise MissingUserDetails("Invalid user details", status_code= 403)
     response = new_customer_creation(customer_info, advisor_id)
-    return jsonify(response)
+    return jsonify(response), 201
 
+@app.route('/update_user', methods = ['PUT'])
+@require_auth()
+@ValidateUpdateUserInfoSchema()
+def update_user():
+    user_info = request.get_json()
+    update_user_details(user_info)
+    return jsonify(), 200
+        
 @app.route('/customers', methods = ['GET'])
 @require_auth()
 @authenticate_user_role(role="Fund_Manager")
 def get_customers():
-    advisor_id = request.headers['user']
+    try:
+        advisor_id = request.headers['user']
+    except:
+        raise MissingUserDetails("Invalid user details", status_code= 403)
     response = get_customers_info_under_advisor(advisor_id);
     return jsonify(response)
 
-@app.route('/add_stock', methods = ['POST'])
+@app.route('/customer/<id>', methods = ['GET'])
 @require_auth()
-@authenticate_user_role(role="Fund_Manager")
-def add_stock():
-    customer_info = request.get_json()
-    # advisor_id = request.headers['user']
-    print("Hellooo",request.get_json().get('exchange'))
-    # response = get_customers_info_under_advisor(advisor_id);
-    return jsonify(customer_info)
+def get_customer(id):
+    response = get_customer_info(id);
+    return jsonify(response)
 
 @app.route('/delete_customer', methods = ['DELETE'])
 @require_auth()
 @authenticate_user_role(role="Fund_Manager")
 def delete_customer():
-    customer_id = request.headers['Customer']
+    try:
+        customer_id = request.headers['Customer']
+    except:
+        raise MissingUserDetails("Invalid customer details", status_code= 403)
     response = delete_customer_information(customer_id)
     return jsonify(response)
 
@@ -85,4 +113,4 @@ def add_advisor():
     return jsonify(response.id)
 
 if __name__ == "__main__":
-    app.run(port=8000)
+    app.run()

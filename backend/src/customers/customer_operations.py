@@ -1,6 +1,7 @@
 
-from flask import json
+from flask import json, jsonify
 import requests
+from src.exception import InvalidCustomerData, UserRightsException
 from src.tokens_and_roles import get_access_token
 from src.models import advisors, customers, db
 
@@ -33,6 +34,8 @@ def create_customer_id(customer_info):
         "Authorization":f"Bearer {access_token}"
     }
     response = requests.request("POST", url, headers=headers, data=payload)
+    if (response.json()['statusCode'] != 200) :
+        raise InvalidCustomerData(response.json()['message'], status_code = response.json()['statusCode'])
     user_id = response.json()['user_id']
     return user_id
 
@@ -49,7 +52,58 @@ def assign_customer_role(user_id):
         "Authorization":f"Bearer {access_token}"
     }
     response = requests.request("POST", url, headers=headers, data=payload)
+    if (response.json()['statusCode'] != 200) :
+        raise UserRightsException(response.json()['message'], status_code = response.json()['statusCode'])
     return response
+
+def delete_customer_information(customer_id):
+    customer = customers.query.get(customer_id)
+    id = customer.login_id
+    url = f"https://dev-d6pchdbvs0cq84vq.us.auth0.com/api/v2/users/{id}"
+    access_token = get_access_token()
+    headers = {
+        "Authorization":f"Bearer {access_token}"
+    }
+    response = requests.request("DELETE", url, headers=headers)
+    if (response.json()['statusCode'] != 200) :
+        raise InvalidCustomerData(response.json()['message'], status_code = response.json()['statusCode'])
+    
+    db.session.delete(customer)
+    db.session.commit()
+    return("Recored sucessfully deleted")
+
+def get_customers_info_under_advisor(advisor_id):
+    customers_list = customers.query.filter_by(advisor_id = advisor_id).all()
+    customers_info = []
+
+    for customer in customers_list:
+        customer_dict = {
+            'id' : customer.id,
+            'advisor_id' : customer.advisor_id,
+            'name': customer.name,
+            'email': customer.email,
+            'age': customer.age,
+            'phone_number': customer.phone_number
+        }
+        customers_info.append(customer_dict)
+    return customers_info
+
+def get_customer_info(customer_id):
+    customer = customers.query.get(customer_id)
+
+    if customer is None:
+        raise InvalidCustomerData("customer details invalid", status_code = 404)
+
+    customer_dict = {
+        'id' : customer.id,
+        'advisor_id' : customer.advisor_id,
+        'name': customer.name,
+        'email': customer.email,
+        'age': customer.age,
+        'phone_number': customer.phone_number
+    }
+    return customer_dict
+
 
 
 def create_customer_in_local_db(customer_info, customer_id, advisor_id):
@@ -58,12 +112,6 @@ def create_customer_in_local_db(customer_info, customer_id, advisor_id):
                          name = customer_info.get('name'), email = customer_info.get('email'), 
                          age = customer_info.get('age'), phone_number = customer_info.get('phone_number'))
     db.session.add(customer)
-    db.session.commit()
-    return "Record added sucessfully"
-
-def add_advisor_data(advisor_id):
-    advisor = advisors(login_id = advisor_id, name = 'Eshwar', email = 'eshwar4299@gmail.com', age = 34, phone_number = 9441553934)
-    db.session.add(advisor)
     db.session.commit()
 
     
