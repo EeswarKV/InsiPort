@@ -5,6 +5,7 @@ from src.exception import InvalidCustomerData, MissingUserDetails, UserRightsExc
 from src.general_settings import get_general_settings
 from src.customers.customer_operations import delete_customer_information, get_customer_info, get_customers_info_under_advisor, new_customer_creation
 from src.validator import Auth0JWTBearerTokenValidator, ValidateAddCustomerRequest, ValidateUpdateUserInfoSchema, authenticate_user_role
+from src.dashboard.retrieve_stock_details import get_stock_details
 import ssl 
 ssl._create_default_https_context = ssl._create_unverified_context
 from src.models import advisors, db
@@ -84,6 +85,15 @@ def get_customers():
 def get_customer(id):
     response = get_customer_info(id);
     return jsonify(response)
+
+@authenticate_user_role(role="Fund_Manager")
+@require_auth()
+def add_stock():
+    stock_info = request.get_json()
+    # advisor_id = request.headers['user']
+    print("Hellooo",request.get_json().get('exchange'))
+    response = get_stock_details(stock_info)
+    return jsonify(stock_info)
 
 @app.route('/delete_customer', methods = ['DELETE'])
 @require_auth()

@@ -334,7 +334,7 @@ def profile_settings():
     # Redirect back to the profile settings page after updating
     return render_template('profile-settings/profile-settings.html',user_info=singleton.data["userInfo"])
 
-@app.route('/add_stock', methods=['POST'])
+@app.route('/add_stock?{singleton.userId}', methods=['POST'])
 def save_stock_entry():
     headers = {"Authorization": f"Bearer {singleton.token}", "user": f"{singleton.userId}",  'Content-Type': 'application/json',
         'Accept': 'application/json'}
@@ -343,7 +343,7 @@ def save_stock_entry():
     symbol = request.form.get('symbol')
     entry_price = request.form.get('entryPrice')
     quantity = request.form.get('quantity')
-    entry_date = request.form.get('entryDate')
+    entry_date = request.form.get('entry_date')
 
 
     # Perform the API call or other processing here
